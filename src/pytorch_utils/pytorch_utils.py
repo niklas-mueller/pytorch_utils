@@ -35,7 +35,8 @@ def visualize_layers(model):
 
     return figs
 
-def evaluate(loader, model:nn.DataParallel, criterion, device=None):
+def evaluate(loader, model:nn.DataParallel, criterion, device=None, verbose:bool=False):
+    num_correct = 0
     num_samples = 0
     losses = {}
     model.eval()
@@ -61,7 +62,8 @@ def evaluate(loader, model:nn.DataParallel, criterion, device=None):
             num_samples += predictions.size(0)
         
         accuracy = float(num_correct)/float(num_samples)
-        print(f'Got {num_correct} / {num_samples} with accuracy {accuracy*100:.2f}%') 
+        if verbose:
+            print(f'Got {num_correct} \t/ {num_samples} correct -> accuracy {accuracy*100:.2f} %') 
     
     model.train()
 
@@ -69,12 +71,11 @@ def evaluate(loader, model:nn.DataParallel, criterion, device=None):
 
 
 def train(model, trainloader, valloader, loss_fn, optimizer, device, 
-            n_epochs, result_manager=None, verbose:bool=True,
+            n_epochs:int, result_manager=None, verbose:bool=True,
             eval_valid_every:int=0, testloader=None, visualize_layers:bool=False):
-    if verbose:
-        print(f"Running epoch {epoch}")
+    
 
-    current_time = time.ctime()
+    current_time = time.ctime().replace(' ', '_')
     results = {}
     model.train(True)
     last_losses = []
@@ -82,6 +83,9 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
     best_valid_loss = np.inf
     for epoch in range(n_epochs):
+        if verbose:
+            print(f"Running epoch {epoch}")
+
         start_time_epoch = time.time()
         # Initalize losses
         running_loss = 0.0
@@ -114,9 +118,10 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
                 last_loss = running_loss / eval_valid_every # Loss per batch
                 running_loss = 0.0
 
-                eval = evaluate(loader=valloader, model=model, criterion=loss_fn, device=device)
-                if np.mean(eval['batch_losses']) < best_valid_loss:
-                    best_valid_loss = np.mean(eval['batch_losses'])
+                eval = evaluate(loader=valloader, model=model, criterion=loss_fn, device=device, verbose=False)
+                avg_val_loss = np.mean([batch_losses for _, batch_losses in eval['batch_losses'].items()])
+                if avg_val_loss < best_valid_loss:
+                    best_valid_loss = avg_val_loss
                     results['validation_during_training_epoch-{epoch}'] = eval
 
         end_time_epoch = time.time()
@@ -137,7 +142,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
 
     if testloader is not None:
-        eval = evaluate(loader=testloader, model=model)
+        eval = evaluate(loader=testloader, model=model, criterion=loss_fn, verbose=True)
         results['eval_trained_testdata'] = eval
 
         if verbose:
