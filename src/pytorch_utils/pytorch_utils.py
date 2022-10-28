@@ -78,18 +78,19 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
     current_time = time.ctime().replace(' ', '_')
     results = {}
     model.train(True)
-    last_losses = []
+    losses = []
     epoch_times = []
 
     best_valid_loss = np.inf
+    best_training_loss = np.inf
     for epoch in range(n_epochs):
         if verbose:
             print(f"Running epoch {epoch}")
 
         start_time_epoch = time.time()
         # Initalize losses
-        running_loss = 0.0
-        last_loss = 0.0
+        # running_loss = 0.0
+        # last_loss = 0.0
 
         # Training loop
         for train_index, (inputs, labels) in enumerate(trainloader):
@@ -111,29 +112,36 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
             # Adjust learning weights
             optimizer.step()
 
-            # Gather data and report
-            running_loss += loss.item()
+            # # Gather data and report
+            # running_loss += loss.item()
 
             if eval_valid_every > 0 and train_index % eval_valid_every == eval_valid_every-1:
-                last_loss = running_loss / eval_valid_every # Loss per batch
-                running_loss = 0.0
+                # last_loss = running_loss / eval_valid_every # Loss per batch
+                # running_loss = 0.0
 
                 eval = evaluate(loader=valloader, model=model, criterion=loss_fn, device=device, verbose=False)
                 avg_val_loss = np.mean([batch_losses for _, batch_losses in eval['batch_losses'].items()])
                 if avg_val_loss < best_valid_loss:
                     best_valid_loss = avg_val_loss
-                    results['validation_during_training_epoch-{epoch}'] = eval
+                    results[f'validation_during_training_epoch-{epoch}'] = eval
 
         end_time_epoch = time.time()
         epoch_times.append(end_time_epoch - start_time_epoch)
-        last_losses.append(last_loss)
+        
+        losses.append(loss.item())
+        
+        if loss.item() < best_training_loss:
+            best_training_loss = loss.item()
+            if verbose:
+                print(f"Found new best model: Saving model in epoch {epoch} with loss {loss.item()}.")
+            result_manager.save_model(model, filename=f'best_model_{current_time}.pth')
         if verbose:
-            print(f"Loss after epoch {epoch}: {last_loss}")
+            print(f"Loss after epoch {epoch}: {loss.item()}")
 
     model.train(False)
     
     
-    results['training_losses'] = last_losses
+    results['training_losses'] = losses
     results['epoch_times'] = epoch_times
 
     if verbose:
@@ -150,7 +158,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
     if result_manager is not None:
         result_manager.save_result(results, filename=f'training_results_{current_time}.yml')
-        result_manager.save_model(model, filename=f'model_{current_time}.pth')
+        result_manager.save_model(model, filename=f'final_model_{current_time}.pth')
 
         if verbose:
             print(f"Save results and model state.")
