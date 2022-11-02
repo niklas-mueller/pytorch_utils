@@ -134,7 +134,8 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
             best_training_loss = loss.item()
             if verbose:
                 print(f"Found new best model: Saving model in epoch {epoch} with loss {loss.item()}.")
-            result_manager.save_model(model, filename=f'best_model_{current_time}.pth')
+            if result_manager is not None:
+                result_manager.save_model(model, filename=f'best_model_{current_time}.pth')
         if verbose:
             print(f"Loss after epoch {epoch}: {loss.item()}")
 
@@ -165,7 +166,9 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
     if visualize_layers:
         figs = visualize_layers(model)
-        result_manager.save_pdf(figs=figs, filename='layer_visualisation_after_training.pdf')
+        if result_manager is not None:
+            print("To save the visualisation provide a result manager!")
+            result_manager.save_pdf(figs=figs, filename='layer_visualisation_after_training.pdf')
 
         if verbose:
             print(f"Saved visualization of layers after training.")
