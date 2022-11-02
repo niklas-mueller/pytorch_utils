@@ -83,6 +83,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
     best_valid_loss = np.inf
     best_training_loss = np.inf
+    best_model_state_dict = None
     for epoch in range(n_epochs):
         if verbose:
             print(f"Running epoch {epoch}")
@@ -134,7 +135,9 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
             best_training_loss = loss.item()
             if verbose:
                 print(f"Found new best model: Saving model in epoch {epoch} with loss {loss.item()}.")
-            result_manager.save_model(model, filename=f'best_model_{current_time}.pth')
+            result_manager.save_model(model, filename=f'best_model_{current_time}.pth', overwrite=True)
+
+            best_model_state_dict = model.state_dict()
         if verbose:
             print(f"Loss after epoch {epoch}: {loss.item()}")
 
@@ -150,6 +153,9 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
 
     if testloader is not None:
+        # Load best model
+        model.load_state_dict(best_model_state_dict)
+
         eval = evaluate(loader=testloader, model=model, criterion=loss_fn, verbose=True)
         results['eval_trained_testdata'] = eval
 
