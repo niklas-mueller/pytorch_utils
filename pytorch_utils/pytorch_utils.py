@@ -71,19 +71,20 @@ def evaluate(loader, model:nn.DataParallel, criterion, device=None, verbose:bool
 
 
 def train(model, trainloader, valloader, loss_fn, optimizer, device, 
-            n_epochs:int, result_manager=None, verbose:bool=True,
+            n_epochs:int, lr_scheduler=None, result_manager=None, verbose:bool=True,
             eval_valid_every:int=0, testloader=None, visualize_layers:bool=False):
     
 
     current_time = time.ctime().replace(' ', '_')
     results = {}
     model.train(True)
+    loss = None
     losses = []
     epoch_times = []
 
     best_valid_loss = np.inf
     best_training_loss = np.inf
-    best_model_state_dict = None
+    best_model_state_dict = model.state_dict()
     for epoch in range(n_epochs):
         if verbose:
             print(f"Running epoch {epoch}")
@@ -126,6 +127,9 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
                     best_valid_loss = avg_val_loss
                     results[f'validation_during_training_epoch-{epoch}'] = eval
 
+        if lr_scheduler is not None:
+            lr_scheduler.step()
+
         end_time_epoch = time.time()
         epoch_times.append(end_time_epoch - start_time_epoch)
         
@@ -143,20 +147,36 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
             print(f"Loss after epoch {epoch}: {loss.item()}")
 
     model.train(False)
+
+    # Save final model (NOT necessarily best model)
+    if result_manager is not None:
+        result_manager.save_model(model, filename=f'final_model_{current_time}.pth')
+
+
+    # Load best model
+    model.load_state_dict(best_model_state_dict)
     
     
+    # Get training losses and times
     results['training_losses'] = losses
     results['epoch_times'] = epoch_times
 
     if verbose:
-        print(f'Finished Training with loss: {loss.item()}')
+        print("\n\n-----------------------------\n\n")
+        if loss is not None:
+            print(f'Finished Training with loss: {loss.item()}')
         print(f'Average time per epoch for {n_epochs} epochs: {np.mean(epoch_times)}')
 
+        # Evaluate on training model to get first indication whether training works
+        training_eval = evaluate(loader=trainloader, model=model, criterion=loss_fn, verbose=True)
+        results['eval_trained_traindata'] = training_eval
 
+        if verbose:
+            print(f"Evaluated TRAINING data: Accuracy: {eval['accuracy']}")
+
+
+    # Evaluate on test dataset
     if testloader is not None:
-        # Load best model
-        model.load_state_dict(best_model_state_dict)
-
         eval = evaluate(loader=testloader, model=model, criterion=loss_fn, verbose=True)
         results['eval_trained_testdata'] = eval
 
@@ -165,10 +185,9 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
     if result_manager is not None:
         result_manager.save_result(results, filename=f'training_results_{current_time}.yml')
-        result_manager.save_model(model, filename=f'final_model_{current_time}.pth')
 
         if verbose:
-            print(f"Save results and model state.")
+            print(f"Saved results and model state.")
 
     if visualize_layers:
         figs = visualize_layers(model)
