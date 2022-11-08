@@ -90,7 +90,7 @@ def evaluate(loader, model:nn.DataParallel, criterion, device=None, verbose:bool
 
 def train(model, trainloader, valloader, loss_fn, optimizer, device, 
             n_epochs:int, lr_scheduler:torch.optim.lr_scheduler=None, plateau_lr_scheduler:torch.optim.lr_scheduler=None, result_manager=None, verbose:bool=True,
-            eval_valid_every:int=0, testloader=None, visualize_layers:bool=False):
+            testloader=None, visualize_layers:bool=False):
     
 
     current_time = time.ctime().replace(' ', '_')
@@ -98,6 +98,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
     model.train(True)
     loss = None
     losses = []
+    validation_losses = []
     epoch_times = []
 
     best_valid_loss = np.inf
@@ -113,7 +114,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
         # last_loss = 0.0
 
         # Training loop
-        for train_index, (inputs, labels) in enumerate(trainloader):
+        for inputs, labels in trainloader:
 
             # Move data to device
             inputs = inputs.to(device)
@@ -132,25 +133,6 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
             # Adjust learning weights
             optimizer.step()
 
-            if eval_valid_every > 0 and train_index % eval_valid_every == eval_valid_every-1:
-
-                # Evaluate on validation set
-                eval = evaluate(loader=valloader, model=model, criterion=loss_fn, device=device, verbose=False)
-                # Compute average over batches
-                avg_val_loss = np.mean([batch_losses for _, batch_losses in eval['batch_losses'].items()])
-
-                # if plateau learning rate scheduler is given, make step depending on average validation loss
-                if plateau_lr_scheduler is not None:
-                    plateau_lr_scheduler.step(avg_val_loss)
-
-                # Check if validation loss has improved and if then store evaluation results
-                if avg_val_loss < best_valid_loss:
-                    best_valid_loss = avg_val_loss
-                    results[f'validation_during_training_epoch-{epoch}'] = eval
-
-        # If learning rate scheduler is given, make step
-        if lr_scheduler is not None:
-            lr_scheduler.step()
 
         # Get time needed for epoch
         end_time_epoch = time.time()
@@ -172,6 +154,28 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
         if verbose:
             print(f"Loss after epoch {epoch}: {loss.item()}")
 
+        # Evaluate on validation set
+        eval = evaluate(loader=valloader, model=model, criterion=loss_fn, device=device, verbose=False)
+
+        # Compute average over batches
+        validation_loss = np.mean([batch_losses for _, batch_losses in eval['batch_losses'].items()])
+
+        validation_losses.append(validation_loss)
+        results[f'validation_during_training_epoch-{epoch}'] = eval
+
+        # if plateau learning rate scheduler is given, make step depending on average validation loss
+        if plateau_lr_scheduler is not None:
+            plateau_lr_scheduler.step(validation_loss)
+
+        # Check if validation loss has improved and if then store evaluation results
+        if validation_loss < best_valid_loss:
+            best_valid_loss = validation_loss
+            
+
+        # If learning rate scheduler is given, make step
+        if lr_scheduler is not None:
+            lr_scheduler.step()
+
     model.train(False)
 
     # Save final model (NOT necessarily best model)
@@ -185,6 +189,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
     
     # Get training losses and times
     results['training_losses'] = losses
+    results['validation_losses'] = validation_losses
     results['epoch_times'] = epoch_times
 
     if verbose:
