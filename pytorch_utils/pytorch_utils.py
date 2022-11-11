@@ -46,6 +46,10 @@ def _get_device(model):
 
     return device
 
+def collate_fn(batch):
+    batch = list(filter(lambda x: x is not None, batch))
+    return torch.utils.data.dataloader.default_collate(batch)
+
 def get_confusion_matrix(model, loader, n_classes, device=None):
     if device is None:
         device = _get_device(model=model)
