@@ -96,7 +96,7 @@ def evaluate(loader, model:nn.DataParallel, criterion, device=None, get_accuracy
 
 def train(model, trainloader, valloader, loss_fn, optimizer, device, 
             n_epochs:int, lr_scheduler:torch.optim.lr_scheduler=None, plateau_lr_scheduler:torch.optim.lr_scheduler=None, result_manager=None, verbose:bool=True,
-            testloader=None, visualize_layers:bool=False):
+            testloader=None, visualize_layers:bool=False, get_accuracy:bool=True):
     
 
     current_time = time.ctime().replace(' ', '_')
@@ -161,7 +161,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
             print(f"Loss after epoch {epoch}: {loss.item()}")
 
         # Evaluate on validation set
-        eval = evaluate(loader=valloader, model=model, criterion=loss_fn, device=device, verbose=False)
+        eval = evaluate(loader=valloader, model=model, criterion=loss_fn, device=device, verbose=False, get_accuracy=get_accuracy)
 
         # Compute average over batches
         validation_loss = np.mean([batch_losses for _, batch_losses in eval['batch_losses'].items()])
@@ -205,7 +205,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
         print(f'Average time per epoch for {n_epochs} epochs: {np.mean(epoch_times)}')
 
         # Evaluate on training model to get first indication whether training works
-        training_eval = evaluate(loader=trainloader, model=model, criterion=loss_fn, verbose=True)
+        training_eval = evaluate(loader=trainloader, model=model, criterion=loss_fn, verbose=True, get_accuracy=get_accuracy)
         results['eval_trained_traindata'] = training_eval
 
         print(f"Evaluated TRAINING data: Accuracy: {training_eval['accuracy']}")
@@ -213,7 +213,7 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
     # Evaluate on test dataset
     if testloader is not None:
-        eval = evaluate(loader=testloader, model=model, criterion=loss_fn, verbose=True)
+        eval = evaluate(loader=testloader, model=model, criterion=loss_fn, verbose=True, get_accuracy=get_accuracy)
         results['eval_trained_testdata'] = eval
 
         if verbose:
