@@ -62,7 +62,7 @@ def get_confusion_matrix(model, loader, n_classes, device=None):
 
     return confusion_matrix
 
-def evaluate(loader, model:nn.DataParallel, criterion, device=None, verbose:bool=False):
+def evaluate(loader, model:nn.DataParallel, criterion, device=None, get_accuracy:bool=True, verbose:bool=False):
     num_correct = 0
     num_samples = 0
     losses = {}
@@ -79,17 +79,19 @@ def evaluate(loader, model:nn.DataParallel, criterion, device=None, verbose:bool
             scores = model(x)
             loss = criterion(scores, y)
             losses[i] = loss.cpu().tolist()
-            _, predictions = scores.max(1)
-            num_correct += (predictions == y).sum()
-            num_samples += predictions.size(0)
+            if get_accuracy:
+                _, predictions = scores.max(1)
+                num_correct += (predictions == y).sum()
+                num_samples += predictions.size(0)
         
-        accuracy = float(num_correct)/float(num_samples)
-        if verbose:
-            print(f'Got {num_correct} \t/ {num_samples} correct -> accuracy {accuracy*100:.2f} %') 
-    
+        if get_accuracy:
+            accuracy = float(num_correct)/float(num_samples)
+            if verbose:
+                print(f'Got {num_correct} \t/ {num_samples} correct -> accuracy {accuracy*100:.2f} %') 
+        
     model.train()
 
-    return {'accuracy': accuracy, 'batch_losses': losses}
+    return {'accuracy': accuracy if get_accuracy else None, 'batch_losses': losses}
 
 
 def train(model, trainloader, valloader, loss_fn, optimizer, device, 
