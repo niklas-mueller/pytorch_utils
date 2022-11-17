@@ -239,3 +239,5 @@ def train(model, trainloader, valloader, loss_fn, optimizer, device,
 
     if verbose:
         print(f"Done!")
+
+    return results
