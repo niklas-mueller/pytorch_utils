@@ -3,7 +3,7 @@ README.md
 pyproject.toml
 setup.py
 pytorch_utils/__init__.py
-pytorch_utils/pytorch_utils_m.py
+pytorch_utils/pytorch_utils.py
 pytorch_utils.egg-info/PKG-INFO
 pytorch_utils.egg-info/SOURCES.txt
 pytorch_utils.egg-info/dependency_links.txt
