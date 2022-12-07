@@ -109,7 +109,7 @@ class ToOpponentChannel(object):
         return ops.transpose((1,2,0))
 
 
-def get_result_figures(results:dict, model=None, result_manager=None, pdf_filename="result_figures.pdf", confusion_matrix=None):
+def get_result_figures(results:dict, model=None, result_manager=None, pdf_filename="result_figures.pdf", confusion_matrix=None, classes=None):
     figs = []
 
     fig, ax = plt.subplots(1,1, figsize=(10,5))
@@ -147,12 +147,19 @@ def get_result_figures(results:dict, model=None, result_manager=None, pdf_filena
     ##############
 
     if confusion_matrix is not None:
-        fig, ax = plt.subplots(1,1, figsize=(10,5))
+        fig, (ax, ax0) = plt.subplots(1,2, figsize=(10,5), gridspec_kw={'width_ratios': [3, 1]})
         bar = ax.imshow(confusion_matrix)
         plt.colorbar(bar, ax=ax, label='Number of occurences', fraction=0.046)
         ax.set_title(f"Confusion Matrix")
         ax.set_xlabel('Predicted Class')
         ax.set_ylabel('Original Class')
+        ax.set_xticks(list(range(len(classes))))
+        ax.set_xticklabels(list(classes.values()), rotation=30)
+
+        ax0.axis('off')
+        classes_str = '\n'.join([f'{index}: {x}' for index, x in classes.items()])
+        ax0.text(0.2, 0.2, classes_str)
+
         figs.append(fig)
 
     ##############
@@ -205,20 +212,30 @@ def evaluate(loader, model:nn.DataParallel, criterion, device=None, verbose:bool
 
 def train(model, trainloader, valloader, loss_fn, optimizer, device, 
             n_epochs:int, lr_scheduler:torch.optim.lr_scheduler=None, plateau_lr_scheduler:torch.optim.lr_scheduler=None, result_manager=None, verbose:bool=True,
-            testloader=None, visualize_layers:bool=False):
+            testloader=None, visualize_layers:bool=False, results:dict={}):
     
 
-    current_time = time.ctime().replace(' ', '_')
-    results = {}
+    # results = {}
     model.train(True)
     loss = None
-    losses = []
-    validation_losses = []
-    epoch_times = []
-
-    best_valid_loss = np.inf
-    best_training_loss = np.inf
     best_model_state_dict = model.state_dict()
+    current_time = time.ctime().replace(' ', '_')
+    
+    if len(results) == 0:
+        losses = []
+        validation_losses = []
+        epoch_times = []
+
+        best_valid_loss = np.inf
+        best_training_loss = np.inf
+    else:
+        losses = results['training_losses']
+        validation_losses = results['validation_losses']
+        epoch_times = results['epoch_times']
+
+        best_valid_loss = min(validation_losses)
+        best_training_loss = min(losses)
+
     for epoch in range(n_epochs):
         if verbose:
             print(f"Running epoch {epoch}")
