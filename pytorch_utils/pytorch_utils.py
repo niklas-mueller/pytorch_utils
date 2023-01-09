@@ -147,14 +147,27 @@ def get_result_figures(results:dict, model=None, result_manager=None, pdf_filena
     ##############
 
     if confusion_matrix is not None:
-        fig, (ax, ax0) = plt.subplots(1,2, figsize=(10,5), gridspec_kw={'width_ratios': [3, 1]})
+        fig, (ax, ax0, ax1) = plt.subplots(1,3, figsize=(15,10), gridspec_kw={'width_ratios': [5, 3, 5]})
         bar = ax.imshow(confusion_matrix)
         plt.colorbar(bar, ax=ax, label='Number of occurences', fraction=0.046)
         ax.set_title(f"Confusion Matrix")
         ax.set_xlabel('Predicted Class')
         ax.set_ylabel('Original Class')
         ax.set_xticks(list(range(len(classes))))
-        ax.set_xticklabels(list(classes.values()), rotation=30)
+        ax.set_xticklabels(list(classes.values()), rotation=65)
+        ax.set_yticks(list(range(len(classes))))
+        ax.set_yticklabels(list(classes.values()))
+
+        cm_sum = confusion_matrix.sum(axis=1)[:, np.newaxis]
+        bar = ax1.imshow(confusion_matrix / np.maximum(np.ones(cm_sum.shape), cm_sum))
+        plt.colorbar(bar, ax=ax1, label='Number of occurences (%)', fraction=0.046)
+        ax1.set_title(f"Confusion Matrix")
+        ax1.set_xlabel('Predicted Class')
+        ax1.set_ylabel('Original Class')
+        ax1.set_xticks(list(range(len(classes))))
+        ax1.set_xticklabels(list(classes.values()), rotation=65)
+        ax1.set_yticks(list(range(len(classes))))
+        ax1.set_yticklabels(list(classes.values()))
 
         ax0.axis('off')
         classes_str = '\n'.join([f'{index}: {x}' for index, x in classes.items()])
